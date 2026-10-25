@@ -583,6 +583,18 @@ async function askQuestion() {
 // SHARED SEARCH UTILITIES
 // ============================================
 
+// On a non-2xx response, supabase-js leaves `data` empty and puts the
+// Response in error.context, so read the function's { error } message from there
+async function functionErrorMessage(error, fallback) {
+    try {
+        const body = await error.context.json();
+        if (body?.error) return body.error;
+    } catch {
+        // Not a JSON response (e.g. network or CORS failure)
+    }
+    return fallback;
+}
+
 // Get embedding via Edge Function
 async function getEmbedding(text) {
     const { data, error } = await supabaseClient.functions.invoke('embed-question', {
@@ -590,7 +602,7 @@ async function getEmbedding(text) {
     });
 
     if (error) {
-        throw new Error(data?.error || 'Failed to get embedding');
+        throw new Error(await functionErrorMessage(error, 'Failed to get embedding'));
     }
 
     return data.embedding;
@@ -690,7 +702,7 @@ async function generateAnswer(question, contextTalks) {
     });
 
     if (error) {
-        throw new Error(data?.error || 'Failed to generate answer');
+        throw new Error(await functionErrorMessage(error, 'Failed to generate answer'));
     }
 
     return data.answer;
